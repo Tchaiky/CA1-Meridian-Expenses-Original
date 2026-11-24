@@ -29,8 +29,14 @@ jobs:
       - name: Scan original application
         run: |
           cd sps-ca1-flask-expenses
-          bandit -r app.py seed.py -f json -o ../bandit-results.json || true
-          bandit -r app.py seed.py -f txt -o ../bandit-results.txt || true
+          set +e
+          bandit -r app.py seed.py -f json -o ../bandit-results.json
+          json_status=$?
+          bandit -r app.py seed.py -f txt -o ../bandit-results.txt
+          text_status=$?
+          if [ "$json_status" -ne 0 ] || [ "$text_status" -ne 0 ]; then
+            exit 1
+          fi
 
       - name: Upload Bandit reports
         if: always()
@@ -58,7 +64,7 @@ jobs:
       - name: Scan original application
         run: |
           cd sps-ca1-flask-expenses
-          semgrep scan --config p/python --config p/flask --json --output ../semgrep-results.json . || true
+          semgrep scan --config p/python --config p/flask --error --json --output ../semgrep-results.json .
 
       - name: Upload Semgrep report
         if: always()
@@ -84,7 +90,7 @@ jobs:
       - name: Scan dependencies
         run: |
           cd sps-ca1-flask-expenses
-          pip-audit -r requirements.txt --format json --output ../pip-audit-results.json || true
+          pip-audit -r requirements.txt --format json --output ../pip-audit-results.json
 
       - name: Upload dependency report
         if: always()
@@ -103,11 +109,10 @@ jobs:
           fetch-depth: 0
 
       - name: Run Gitleaks
-        continue-on-error: true
         uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_ENABLE_COMMENTS: false
+          GITLEAKS_ENABLE_COMMENTS: "false"
 
   ruff:
     name: Ruff Code Quality
@@ -125,7 +130,7 @@ jobs:
       - name: Scan original application
         run: |
           cd sps-ca1-flask-expenses
-          ruff check app.py seed.py --output-format json --output-file ../ruff-results.json || true
+          ruff check app.py seed.py --output-format json --output-file ../ruff-results.json
 
       - name: Upload Ruff report
         if: always()
@@ -153,7 +158,7 @@ jobs:
       - name: Custom tests pending implementation
         run: |
           echo "Custom security tests have not yet been implemented."
-          echo "Placeholder."
+          echo "This job is a placeholder."
 
   zap:
     name: OWASP ZAP DAST
@@ -186,10 +191,9 @@ jobs:
           exit 1
 
       - name: Run ZAP baseline scan
-        continue-on-error: true
         uses: zaproxy/action-baseline@v0.15.0
         with:
           target: "http://host.docker.internal:5000"
-          fail_action: false
+          fail_action: true
           allow_issue_writing: false
           artifact_name: zap-baseline-report
