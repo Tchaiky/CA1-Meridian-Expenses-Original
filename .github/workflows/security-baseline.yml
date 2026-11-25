@@ -155,10 +155,18 @@ jobs:
           cd sps-ca1-flask-expenses
           python -m pip install -r requirements.txt pytest
 
-      - name: Custom tests pending implementation
+      - name: Run horizontal access-control tests
+        working-directory: sps-ca1-flask-expenses
         run: |
-          echo "Custom security tests have not yet been implemented."
-          echo "This job is a placeholder."
+          python -m pytest tests/ -v --junitxml=../custom-test-results.xml
+
+      - name: Upload custom test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: custom-security-test-results
+          path: custom-test-results.xml
+          if-no-files-found: warn
 
   zap:
     name: OWASP ZAP DAST
